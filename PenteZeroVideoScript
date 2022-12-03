@@ -1,0 +1,51 @@
+In late 2017, scientists at Deepmind unveiled a neural network that could beat the best human and computer agents in the world at games like Chess, Go, and Shogi.  In this video, we'll explore the surprisingly simple methods that make this possible.
+
+But first, let's explain the game we'll be focusing on.
+
+Pente, which means "five" in Greek, is a game played on a 19x19 board, much like Go.  Players take turns placing their pieces on the board, and the win conditions are as follows: First, a player wins if they can successfully place five pieces in a row on the board.  Thus the name.  This is intuitive and much like a scaled up version of tictactoe.  The other win condition is met when a player captures five pairs of the opponents pieces.
+
+Every possible move that can be made and every possible board that can occur is part of a graph, where the nodes represent unique possible game states, and the edges represent the moves that are taken to get from one possible game state to another.  Here we see an extremely small subset of the graph that contains all possible games of Pente.
+
+But computers don't understand what a "board" is, so we encode every game state as a matrix with zeros in empty positions, ones in postions filled by player 1, and negative ones in positions filled by player 2.  This is how the computer sees each game state.
+
+Now, we'll look at a larger example graph.  In this case, for the sake of visualization, we've redrawn every game state in the graph as a point.  This allows us to visualize a larger part of our game graph more easily.
+
+Every node in our graph contains some additional information beyond just the game state.  We're specifically interested in knowing the number of times we've visited a particular node, and the outcomes of those visits, whether those outcomes are wins, losses, or draws.
+
+Let's look at a small piece of our graph as an example.
+
+Here we see that a red leaf node indicates an outcome of 1 (or a win for player 1), a blue leaf node indicates an outcome of 0 (or a win for player 2), and a grey leaf node indicates an outcome of one half (or a draw).  If we then look at the root of this particular subsection of the graph, we find that the number of visits to that node is equal to the number of terminal states (9, in this case), and the sum of all game outcomes after visiting that node is 5.5.  These two numbers can be combined to give us a best guess for what the probability of player 1 winning is, given that a particular move is made.
+
+So we now know how our game works, how our data can be stored in a graph, and how to calculate expected winrate conditioned on making a given move.
+
+But we still have one very large question about our graph left.  How did we get this graph?
+
+You see... a graph that contains all possible game states for Pente would have 10 ^ 80 nodes.  Oh... hold up.  Let me check my notes.  I take that back.  That's the estimated number of atoms in the visible universe.  The graph that contains all possible game states for Pente likely has closer to 10^170 nodes.  To put that in perspective, if every atom in the visible universe suddenly became a universe itself, the number of atoms in all of that would still potentially be billions of times smaller than the number of legal board positions in Pente.
+
+So, the question remains.  Where do we get the graph we were discussing earlier?
+
+The answer is surprisingly simple.  We start out with the root node of our graph, which in this case is an empty game board.  Then, we examine all legal moves from that state and select the next node to add to our graph using a node scoring function that we get to choose.  We then expand that new node, select the best child node using our scoring function, and add it to the graph.  We repeat this process until we reach a terminal game state, and then return to the root node and begin again.
+
+We select our nodes by calculating something called the Upper Confidence Bound Score for Trees (or UCB score for short), and selecting the candidate node with the highest score.  If multiple candidate nodes all have the same high UCB score, then we randomly choose between them.
+
+To reiterate, we start with our root node, then calculate UCB scores for all legal moves from that node, choose the node with the highest score, and then repeat the process from this new node until we reach the end of that particular game.  We then repeat this entire process.
+
+But what is the UCB score calculating exactly?  There are three parts.  The first piece is simply the average winrate experienced by moving to a particular state "s".  The second major piece is a term that is very large for unexplored nodes, and very small for well explored nodes. Together, these two pieces of the score create balance between exploiting moves that we know are good (using the first term) and exploring new moves (using the second term).  The third part is a combination of model prediction and a training hyperparameter that lets us have more control over how our model prioritizes exploration vs. exploitation.
+
+But how are neural networks involved?
+
+We used a convolutional neural network architecture to take in matrix representations of each game state in our graph, and output the probability of winning for each legal move we could take from that state.  While not exactly like this architecture, our model used multiple convolutional layers to capture and encode spatial information, followed by several dense layers to create a low dimensional embedding of the game state, followed by multiple deconvolutional layers to ensure our output is a 19 by 19 array of probabilities.  The array of probabilities we're trying to predict is pulled from the graph we began building in the previous step.
+
+So now we understand all the pieces of the puzzle, so let's put them together.
+
+We begin building a graph of possible games using monte carlo tree search (which is the name of the process I described earlier), then we feed the data from that graph into our neural network and train to predict win probabilities conditioned on taking certain moves, then we go back to generating data in our graph, then return to training our network, and so on.
+
+If we do this long enough, all the evidence seems to suggest that our resulting model will be able to play Pente at a superhuman level.
+
+But there's one issue.  We don't have long enough, at least not running this training on one computer.  You see, the Deepmind team working on this project used 5000 state of the art tensor processing units for a day and a half to train.  I have one laptop.  It would take someone extremely clever to do what they did with the computing resources and time that I have, and right now I'm not that person, though I would love to become that person.
+
+Given that information, here are my results, and how they compare to DeepMind's results.  As you can see, my results show a promising initial rise in Elo of over 400 points, indicating that the first iteration of the trained model can be expected to beat the untrained model with better than 10 to 1 odds.  The Elo then begins to slowly decrease over time.  I believe this is due to my lack of computing power forcing me to train on a subset of my graph, rather than the entire thing.  Therefore, as the graph grows with each iteration, this makes my model more and more prone to forget the strategies that it has previously learned.
+
+
+
+
